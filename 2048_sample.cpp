@@ -19,8 +19,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <fstream>
-#include <functional>
 #include <iostream>
 #include <iterator>
 #include <limits>
@@ -36,7 +36,7 @@
  */
 std::ostream &info = std::cout;
 std::ostream &error = std::cerr;
-std::ostream &debug = *(new std::ofstream);
+std::ofstream debug("debug.log");
 
 /**
  * 64-bit bitboard implementation for 2048
@@ -186,13 +186,19 @@ class board {
      * 4-tile: 20%
      */
     void popup() {
-        int space[16], num = 0;
-        for (int i = 0; i < 16; i++)
+        std::vector<size_t> spaces = get_spaces();
+        if (!spaces.empty())
+            set(spaces[rand() % spaces.size()], rand() % 5 ? 1 : 2);
+    }
+
+    std::vector<size_t> get_spaces() const {
+        std::vector<size_t> spaces;
+        for (int i = 0; i < 16; i++) {
             if (at(i) == 0) {
-                space[num++] = i;
+                spaces.push_back(i);
             }
-        if (num)
-            set(space[rand() % num], rand() % 5 ? 1 : 2);
+        }
+        return spaces;
     }
 
     /**
@@ -511,14 +517,23 @@ class pattern : public feature {
      * estimate the value of a given board
      */
     virtual float estimate(const board &b) const {
-        // TODO
+        float value = 0;
+        for (int i = 0; i < iso_last; i++) {
+            value += operator[](indexof(isomorphic[i], b));
+        }
+        return value;
     }
 
     /**
      * update the value of a given board, and return its updated value
      */
     virtual float update(const board &b, float u) {
-        // TODO
+        float value = 0;
+        for (int i = 0; i < iso_last; i++) {
+            float updated_value = operator[](indexof(isomorphic[i], b)) += u;
+            value += updated_value;
+        }
+        return value;
     }
 
     /**
@@ -553,8 +568,15 @@ class pattern : public feature {
     }
 
   protected:
+    /**
+     * get the weight index of a given pattern in a given board
+     */
     size_t indexof(const std::vector<int> &patt, const board &b) const {
-        // TODO
+        size_t index = 0;
+        for (int i = 0; i < patt.size(); i++) {
+            index |= b.at(patt[i]) << (4 * i);
+        }
+        return index;
     }
 
     std::string nameof(const std::vector<int> &patt) const {
@@ -617,17 +639,18 @@ class state {
      * return true if the action is valid for the given state
      */
     bool assign(const board &b) {
-        debug << "assign " << name() << std::endl << b;
         after = before = b;
         score = after.move(opcode);
         esti = score;
+        debug << "assign " << name() << ", score = " << score << std::endl
+              << after;
         return score != -1;
     }
 
     /**
      * call this function after initialization (assign, set_value, etc)
      *
-     * the state is invalid if
+     *  the state is invalid if
      *  estimated value becomes to NaN (wrong learning rate?)
      *  invalid action (cause after == before or score == -1)
      */
@@ -692,11 +715,11 @@ class learning {
      * accumulate the total value of given state
      */
     float estimate(const board &b) const {
-        debug << "estimate " << std::endl << b;
         float value = 0;
         for (feature *feat : feats) {
             value += feat->estimate(b);
         }
+        debug << "estimate, value = " << value << std::endl << b;
         return value;
     }
 
@@ -728,10 +751,23 @@ class learning {
     state select_best_move(const board &b) const {
         state after[4] = {0, 1, 2, 3}; // up, right, down, left
         state *best = after;
+
         for (state *move = after; move != after + 4; move++) {
             if (move->assign(b)) {
-                // TODO
+                // estimate the value of each next board
+                std::vector<size_t> spaces = move->after_state().get_spaces();
+                debug << "estimate " << spaces.size() << " spaces" << std::endl;
 
+                float value = move->reward();
+                for (size_t space : spaces) {
+                    board next_board = move->after_state();
+                    next_board.set(space, 1);
+                    value += estimate(next_board) * 0.8 / spaces.size();
+                    next_board.set(space, 2);
+                    value += estimate(next_board) * 0.2 / spaces.size();
+                }
+
+                move->set_value(value);
                 if (move->value() > best->value())
                     best = move;
             } else {
@@ -750,14 +786,22 @@ class learning {
      *
      * for example, a 2048 games consists of
      *  (initial) s0 --(a0,r0)--> s0' --(popup)--> s1 --(a1,r1)--> s1'
-     * --(popup)--> s2 (terminal) where sx is before state, sx' is after state
+     * --(popup)--> s2 (terminal) where sx is before state, sx' is after
+     * state
      *
      * its path would be
      *  { (s0,s0',a0,r0), (s1,s1',a1,r1), (s2,s2,x,-1) }
      *  where (x,x,x,x) means (before state, after state, action, reward)
      */
     void update_episode(std::vector<state> &path, float alpha = 0.1) const {
-        // TODO
+        for (size_t i = path.size() - 1; i > 0; i--) {
+            state &next = path[i];
+            state &prev = path[i - 1];
+            float updated_value =
+                prev.value() +
+                alpha * (prev.reward() + next.value() - prev.value());
+            update(prev.before_state(), updated_value);
+        }
     }
 
     /**
@@ -777,9 +821,9 @@ class learning {
      *  '1000': current iteration (games trained)
      *  'mean = 273901': the average score of last 1000 games is 273901
      *  'max = 382324': the maximum score of last 1000 games is 382324
-     *  '93.7%': 93.7% (937 games) reached 8192-tiles in last 1000 games (a.k.a.
-     * win rate of 8192-tile) '22.4%': 22.4% (224 games) terminated with
-     * 8192-tiles (the largest) in last 1000 games
+     *  '93.7%': 93.7% (937 games) reached 8192-tiles in last 1000 games
+     * (a.k.a. win rate of 8192-tile) '22.4%': 22.4% (224 games) terminated
+     * with 8192-tiles (the largest) in last 1000 games
      */
     void make_statistic(size_t n, const board &b, int score, int unit = 1000) {
         scores.push_back(score);
@@ -837,8 +881,8 @@ class learning {
 
     /**
      * load the weight table from binary file
-     * you need to define all the features (add_feature(...)) before call this
-     * function
+     * you need to define all the features (add_feature(...)) before call
+     * this function
      */
     void load(const std::string &path) {
         std::ifstream in;
@@ -898,6 +942,8 @@ int main(int argc, const char *argv[]) {
     info << "seed = " << seed << std::endl;
     std::srand(seed);
 
+    bool training = true;
+
     // initialize the features
     tdl.add_feature(new pattern({0, 1, 2, 3, 4, 5}));
     tdl.add_feature(new pattern({4, 5, 6, 7, 8, 9}));
@@ -905,7 +951,7 @@ int main(int argc, const char *argv[]) {
     tdl.add_feature(new pattern({4, 5, 6, 8, 9, 10}));
 
     // restore the model from file
-    tdl.load("");
+    tdl.load("weights.bin");
 
     // train the model
     std::vector<state> path;
@@ -934,13 +980,15 @@ int main(int argc, const char *argv[]) {
         debug << "end episode" << std::endl;
 
         // update by TD(0)
-        tdl.update_episode(path, alpha);
+        if (training)
+            tdl.update_episode(path, alpha);
         tdl.make_statistic(n, b, score);
         path.clear();
     }
 
     // store the model into file
-    tdl.save("");
+    if (training)
+        tdl.save("weights.bin");
 
     return 0;
 }
