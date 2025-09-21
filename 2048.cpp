@@ -36,7 +36,8 @@
  */
 std::ostream &info = std::cout;
 std::ostream &error = std::cerr;
-std::ofstream debug("debug.log");
+std::ostream &debug = *(new std::ofstream);
+// std::ofstream debug("debug.log");
 
 /**
  * 64-bit bitboard implementation for 2048
@@ -530,8 +531,7 @@ class pattern : public feature {
     virtual float update(const board &b, float u) {
         float value = 0;
         for (int i = 0; i < iso_last; i++) {
-            float updated_value = operator[](indexof(isomorphic[i], b)) += u;
-            value += updated_value;
+            value += operator[](indexof(isomorphic[i], b)) += u;
         }
         return value;
     }
@@ -794,13 +794,20 @@ class learning {
      *  where (x,x,x,x) means (before state, after state, action, reward)
      */
     void update_episode(std::vector<state> &path, float alpha = 0.1) const {
+        const float rate = alpha / feats.size();
         for (size_t i = path.size() - 1; i > 0; i--) {
             state &next = path[i];
             state &prev = path[i - 1];
-            float updated_value =
-                prev.value() +
-                alpha * (prev.reward() + next.value() - prev.value());
-            update(prev.before_state(), updated_value);
+
+            float prev_reward = prev.reward();
+            float prev_value = estimate(prev.before_state());
+            float next_value = estimate(next.before_state());
+
+            float update_value = rate * (prev_reward + next_value - prev_value);
+            if (std::isnan(update_value)) {
+                update_value = 0;
+            }
+            update(prev.before_state(), update_value);
         }
     }
 
@@ -951,7 +958,7 @@ int main(int argc, const char *argv[]) {
     tdl.add_feature(new pattern({4, 5, 6, 8, 9, 10}));
 
     // restore the model from file
-    tdl.load("weights.bin");
+    tdl.load("");
 
     // train the model
     std::vector<state> path;
