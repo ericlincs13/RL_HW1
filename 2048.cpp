@@ -965,15 +965,17 @@ int main(int argc, const char *argv[]) {
 
     // set the learning parameters
     float alpha = 0.1;
+    bool training = true;
     size_t total = 100000;
+    if (!training) {
+        total = 1000;
+    }
     unsigned seed;
     __asm__ __volatile__("rdtsc" : "=a"(seed));
     info << "alpha = " << alpha << std::endl;
     info << "total = " << total << std::endl;
     info << "seed = " << seed << std::endl;
     std::srand(seed);
-
-    bool training = true;
 
     // initialize the features
     /**original */
