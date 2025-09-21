@@ -794,6 +794,9 @@ class learning {
      *  where (x,x,x,x) means (before state, after state, action, reward)
      */
     void update_episode(std::vector<state> &path, float alpha = 0.1) const {
+        state &last = path.back();
+        float prev_value = estimate(last.before_state());
+        update(last.before_state(), alpha * (0 - prev_value));
         for (size_t i = path.size() - 1; i > 0; i--) {
             state &next = path[i];
             state &prev = path[i - 1];
@@ -1024,8 +1027,8 @@ int main(int argc, const char *argv[]) {
 
     // store the model into file
     if (training) {
-        tdl.save("weights_new.bin");
-        tdl.save_plot_data("training_data_new.csv");
+        tdl.save("weights.bin");
+        tdl.save_plot_data("training_data.csv");
     }
 
     return 0;
