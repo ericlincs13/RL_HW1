@@ -1024,8 +1024,8 @@ int main(int argc, const char *argv[]) {
 
     // store the model into file
     if (training) {
-        tdl.save("weights_new_2.bin");
-        tdl.save_plot_data("training_data_new_2.csv");
+        tdl.save("weights_new.bin");
+        tdl.save_plot_data("training_data_new.csv");
     }
 
     return 0;
