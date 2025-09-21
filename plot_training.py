@@ -61,9 +61,9 @@ def plot_training_progress(csv_file='training_data.csv', output_file='training_p
         y_min = data['Average_Score'].min()
         y_max = data['Average_Score'].max()
         y_range = y_max - y_min
-        y_ticks = np.arange(int(y_min - y_range * 0.1), 
-                           int(y_max + y_range * 0.1), 
-                           max(1, int(y_range / 10)))
+        y_ticks = np.arange(int(y_min - y_range * 0.1),
+                           int(y_max + y_range * 0.1),
+                           5000)
         plt.yticks(y_ticks)
         
         # 添加網格
