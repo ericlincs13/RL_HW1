@@ -94,8 +94,8 @@ def plot_training_progress(csv_file='training_data.csv', output_file='training_p
 
 def main():
     """主函數"""
-    csv_file = 'training_data.csv'
-    output_file = 'training_progress.png'
+    csv_file = 'training_data_100000.csv'
+    output_file = 'training_progress_100000.png'
     
     # 檢查命令行參數
     if len(sys.argv) > 1:

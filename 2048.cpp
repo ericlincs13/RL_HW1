@@ -794,7 +794,6 @@ class learning {
      *  where (x,x,x,x) means (before state, after state, action, reward)
      */
     void update_episode(std::vector<state> &path, float alpha = 0.1) const {
-        const float rate = alpha / feats.size();
         for (size_t i = path.size() - 1; i > 0; i--) {
             state &next = path[i];
             state &prev = path[i - 1];
@@ -803,7 +802,8 @@ class learning {
             float prev_value = estimate(prev.before_state());
             float next_value = estimate(next.before_state());
 
-            float update_value = rate * (prev_reward + next_value - prev_value);
+            float update_value =
+                alpha * (prev_reward + next_value - prev_value);
             if (std::isnan(update_value)) {
                 update_value = 0;
             }
@@ -971,10 +971,20 @@ int main(int argc, const char *argv[]) {
     bool training = true;
 
     // initialize the features
-    tdl.add_feature(new pattern({0, 1, 2, 3, 4, 5}));
-    tdl.add_feature(new pattern({4, 5, 6, 7, 8, 9}));
-    tdl.add_feature(new pattern({0, 1, 2, 4, 5, 6}));
-    tdl.add_feature(new pattern({4, 5, 6, 8, 9, 10}));
+    /**original */
+    // tdl.add_feature(new pattern({0, 1, 2, 3, 4, 5}));
+    // tdl.add_feature(new pattern({4, 5, 6, 7, 8, 9}));
+    // tdl.add_feature(new pattern({0, 1, 2, 4, 5, 6}));
+    // tdl.add_feature(new pattern({4, 5, 6, 8, 9, 10}));
+    /**new */
+    tdl.add_feature(new pattern({0, 1, 2, 4, 5, 9}));
+    tdl.add_feature(new pattern({1, 5, 6, 7, 9, 13}));
+    tdl.add_feature(new pattern({0, 1, 2, 3, 4, 6}));
+    tdl.add_feature(new pattern({0, 1, 2, 6, 10, 11}));
+    tdl.add_feature(new pattern({0, 1, 3, 5, 6, 7}));
+    tdl.add_feature(new pattern({0, 1, 4, 5, 6, 7}));
+    tdl.add_feature(new pattern({0, 1, 2, 5, 6, 7}));
+    tdl.add_feature(new pattern({1, 4, 5, 6, 7, 10}));
 
     // restore the model from file
     tdl.load("");
@@ -1014,8 +1024,8 @@ int main(int argc, const char *argv[]) {
 
     // store the model into file
     if (training) {
-        tdl.save("weights.bin");
-        tdl.save_plot_data("training_data.csv");
+        tdl.save("weights_new_2.bin");
+        tdl.save_plot_data("training_data_new_2.csv");
     }
 
     return 0;
