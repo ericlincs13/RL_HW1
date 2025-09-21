@@ -530,8 +530,9 @@ class pattern : public feature {
      */
     virtual float update(const board &b, float u) {
         float value = 0;
+        float u_split = u / iso_last;
         for (int i = 0; i < iso_last; i++) {
-            value += operator[](indexof(isomorphic[i], b)) += u;
+            value += operator[](indexof(isomorphic[i], b)) += u_split;
         }
         return value;
     }
@@ -639,11 +640,10 @@ class state {
      * return true if the action is valid for the given state
      */
     bool assign(const board &b) {
+        debug << "assign " << name() << std::endl << b;
         after = before = b;
         score = after.move(opcode);
         esti = score;
-        debug << "assign " << name() << ", score = " << score << std::endl
-              << after;
         return score != -1;
     }
 
@@ -715,11 +715,11 @@ class learning {
      * accumulate the total value of given state
      */
     float estimate(const board &b) const {
+        debug << "estimate " << std::endl << b;
         float value = 0;
         for (feature *feat : feats) {
             value += feat->estimate(b);
         }
-        debug << "estimate, value = " << value << std::endl << b;
         return value;
     }
 
@@ -758,14 +758,16 @@ class learning {
                 std::vector<size_t> spaces = move->after_state().get_spaces();
                 debug << "estimate " << spaces.size() << " spaces" << std::endl;
 
-                float value = move->reward();
+                float value = 0;
                 for (size_t space : spaces) {
                     board next_board = move->after_state();
                     next_board.set(space, 1);
-                    value += estimate(next_board) * 0.8 / spaces.size();
+                    value += estimate(next_board) * 0.8;
                     next_board.set(space, 2);
-                    value += estimate(next_board) * 0.2 / spaces.size();
+                    value += estimate(next_board) * 0.2;
                 }
+                value /= spaces.size();
+                value += move->reward();
 
                 move->set_value(value);
                 if (move->value() > best->value())
