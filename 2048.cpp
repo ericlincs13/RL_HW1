@@ -870,6 +870,7 @@ class learning {
                      << "%";
                 info << "\t(" << (stat[t] * coef) << "%)" << std::endl;
             }
+            plot_data.push_back(std::make_pair(n, mean));
             scores.clear();
             maxtile.clear();
         }
@@ -929,10 +930,28 @@ class learning {
         }
     }
 
+    /**
+     * save plot data to CSV file
+     */
+    void save_plot_data(const std::string &path) {
+        std::ofstream out;
+        out.open(path.c_str(), std::ios::out | std::ios::trunc);
+        if (out.is_open()) {
+            out << "Episode,Average_Score" << std::endl;
+            for (const auto &data : plot_data) {
+                out << data.first << "," << data.second << std::endl;
+            }
+            out.flush();
+            out.close();
+            info << "Plot data saved to " << path << std::endl;
+        }
+    }
+
   private:
     std::vector<feature *> feats;
     std::vector<int> scores;
     std::vector<int> maxtile;
+    std::vector<std::pair<size_t, float>> plot_data; // (episode, avg_score)
 };
 
 int main(int argc, const char *argv[]) {
@@ -994,8 +1013,10 @@ int main(int argc, const char *argv[]) {
     }
 
     // store the model into file
-    if (training)
+    if (training) {
         tdl.save("weights.bin");
+        tdl.save_plot_data("training_data.csv");
+    }
 
     return 0;
 }
